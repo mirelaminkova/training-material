@@ -125,7 +125,7 @@ module GtnLinter
   end
 
   ##
-  # Setting no_toc is discouraged as headers are useful for learners to link to and to jump to. Setting no_toc removes it from the table of contents which is generally inadvisable.
+  # GTN:001 - Setting no_toc is discouraged as headers are useful for learners to link to and to jump to. Setting no_toc removes it from the table of contents which is generally inadvisable.
   #
   # Remediation: remove {: .no_toc}
   def self.fix_notoc(contents)
@@ -171,6 +171,20 @@ module GtnLinter
     end
   end
 
+  ##
+  # GTN:003 - We discourage linking to training.galaxyproject.org or
+  # galaxyproject.github.io/training-material as those are "external" links,
+  # which are slower for us to validate. Every build we run tests to be sure
+  # that every link is valid, but we cannot do that for every external site to
+  # avoid putting unnecessary pressure on them.
+  #
+  # Instead of 
+  #
+  #   [see this other tutorial(https://training.galaxyproject.org/training-material/topics/admin/tutorials/ansible/tutorial.html)
+  #
+  # Consider:
+  #
+  #   [see this other tutorial({% link topics/admin/tutorials/ansible/tutorial.md %})
   def self.link_gtn_tutorial_external(contents)
     find_matching_texts(
       contents,
@@ -187,11 +201,27 @@ module GtnLinter
         replacement: "{% link #{selected[2].gsub('.html', '.md')} %}",
         message: 'Please use the link function to link to other pages within the GTN. ' \
                  'It helps us ensure that all links are correct',
-        code: 'GTN:003'
+        code: 'GTN:003',
+        fn: __method__.to_s,
       )
     end
   end
 
+
+  ##
+  # GTN:003 - We discourage linking to training.galaxyproject.org or
+  # galaxyproject.github.io/training-material as those are "external" links,
+  # which are slower for us to validate. Every build we run tests to be sure
+  # that every link is valid, but we cannot do that for every external site to
+  # avoid putting unnecessary pressure on them.
+  #
+  # Instead of 
+  #
+  #   [see this other tutorial(https://training.galaxyproject.org/training-material/topics/admin/tutorials/ansible/slides.html)
+  #
+  # Consider:
+  #
+  #   [see this other tutorial({% link topics/admin/tutorials/ansible/slides.html %})
   def self.link_gtn_slides_external(contents)
     find_matching_texts(
       contents,
@@ -206,11 +236,16 @@ module GtnLinter
         replacement: "{% link #{selected[3]} %}",
         message: 'Please use the link function to link to other pages within the GTN. ' \
                  'It helps us ensure that all links are correct',
-        code: 'GTN:003'
+        code: 'GTN:003',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ##
+  # GTN:004 - Instead of linking directly to a DOI and citing it yourself, consider obtaining the BibTeX formatted citation and adding it to a tutorial.bib (or slides.bib) file. Then we can generate a full set of references for the citations and give proper credit.
+  #
+  # Companion function to GtnLinter.check_pmids
   def self.check_dois(contents)
     find_matching_texts(contents, %r{(\[[^\]]*\]\(https?://doi.org/[^)]*\))})
       .reject { |_idx, _text, selected| selected[0].match(%r{10.5281/zenodo}) } # Ignoring zenodo
@@ -224,11 +259,16 @@ module GtnLinter
         message: 'This looks like a DOI which could be better served by using the built-in Citations mechanism. ' \
                  'You can use https://doi2bib.org to convert your DOI into a .bib formatted entry, ' \
                  'and add to your tutorial.md',
-        code: 'GTN:004'
+        code: 'GTN:004',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ##
+  # GTN:004 - Instead of linking directly to a PMID URL and citing it yourself, consider obtaining the BibTeX formatted citation and adding it to a tutorial.bib (or slides.bib) file. Then we can generate a full set of references for the citations and give proper credit.
+  #
+  # Companion function to GtnLinter.check_dois
   def self.check_pmids(contents)
     # https://www.ncbi.nlm.nih.gov/pubmed/24678044
     find_matching_texts(contents,
@@ -242,11 +282,22 @@ module GtnLinter
         message: 'This looks like a PMID which could be better served by using the built-in Citations mechanism. ' \
                  'You can use https://doi2bib.org to convert your PMID/PMCID into a .bib formatted entry, ' \
                  'and add to your tutorial.md',
-        code: 'GTN:004'
+        code: 'GTN:004',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ##
+  # GTN:005 - Using link names like 'here' are unhelpful for learners who are progressing through the material with a screenreader. Please use a more descriptive text for your linke
+  #
+  # Instead of
+  #
+  #   see the documentation [here](https://example.com)
+  #
+  # Consider
+  #
+  #   see [edgeR's documentation](https://example.com)
   def self.check_bad_link_text(contents)
     find_matching_texts(contents, /\[\s*(here|link)\s*\]/i)
       .map do |idx, _text, selected|
@@ -259,11 +310,24 @@ module GtnLinter
         message: "Please do not use 'here' as your link title, it is " \
                  '[bad for accessibility](https://usability.yale.edu/web-accessibility/articles/links#link-text). ' \
                  'Instead try restructuring your sentence to have useful descriptive text in the link.',
-        code: 'GTN:005'
+        code: 'GTN:005',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ##
+  # GTN:006 - This is a potentially incorrect Jekyll/Liquid template function/variable access.
+  #
+  # Variables can be placed into your template like so:
+  #
+  #   {{ page.title }}
+  #
+  # And functions can be called like so:
+  #
+  #   {% if page.title %}
+  #
+  # So please be sure {{ }} and {% %} are matching.
   def self.incorrect_calls(contents)
     a = find_matching_texts(contents, /([^{]|^)(%\s*[^%]*%})/i)
         .map do |idx, _text, selected|
@@ -274,7 +338,8 @@ module GtnLinter
         match_end: selected.end(2) + 1,
         replacement: "{#{selected[2]}",
         message: 'It looks like you might be missing the opening { of a jekyll function',
-        code: 'GTN:006'
+        code: 'GTN:006',
+        fn: __method__.to_s,
       )
     end
     b = find_matching_texts(contents, /{([^%]\s*[^%]* %})/i)
@@ -286,7 +351,8 @@ module GtnLinter
         match_end: selected.end(1) + 1,
         replacement: "%#{selected[1]}",
         message: 'It looks like you might be missing the opening % of a jekyll function',
-        code: 'GTN:006'
+        code: 'GTN:006',
+        fn: __method__.to_s,
       )
     end
 
@@ -299,7 +365,8 @@ module GtnLinter
         match_end: selected.end(1) + 2,
         replacement: "#{selected[1]}}#{selected[2]}",
         message: 'It looks like you might be missing the closing } of a jekyll function',
-        code: 'GTN:006'
+        code: 'GTN:006',
+        fn: __method__.to_s,
       )
     end
 
@@ -312,7 +379,8 @@ module GtnLinter
         match_end: selected.end(1) + 1,
         replacement: "#{selected[1]}%",
         message: 'It looks like you might be missing the closing % of a jekyll function',
-        code: 'GTN:006'
+        code: 'GTN:006',
+        fn: __method__.to_s,
       )
     end
     a + b + c + d
@@ -347,6 +415,8 @@ module GtnLinter
     @JEKYLL_CONFIG
   end
 
+  ##
+  # GTN:007 - We could not find a citation key, please be sure it is used in a bibliography somewhere.
   def self.check_bad_cite(contents)
     find_matching_texts(contents, /{%\s*cite\s+([^%]*)\s*%}/i)
       .map do |idx, _text, selected|
@@ -359,12 +429,15 @@ module GtnLinter
           match_end: selected.end(0),
           replacement: nil,
           message: "The citation (#{citation_key}) could not be found.",
-          code: 'GTN:007'
+          code: 'GTN:007',
+          fn: __method__.to_s,
         )
       end
     end
   end
 
+  ##
+  # GTN:033 - This icon is not known to use. If it is new, please add it to {our configuration.}[https://training.galaxyproject.org/training-material/topics/contributing/tutorials/create-new-tutorial-content/faqs/icons_list.html]
   def self.check_bad_icon(contents)
     find_matching_texts(contents, /{%\s*icon\s+([^%]*)\s*%}/i)
       .map do |idx, _text, selected|
@@ -377,12 +450,15 @@ module GtnLinter
           match_end: selected.end(0),
           replacement: nil,
           message: "The icon (#{icon_key}) could not be found, please add it to _config.yml.",
-          code: 'GTN:033'
+          code: 'GTN:033',
+          fn: __method__.to_s,
         )
       end
     end
   end
 
+  ##
+  # GTN:008 - This snippet is not known to us, please check that it exists somewhere in the snippets/ folder.
   def self.non_existent_snippet(contents)
     find_matching_texts(contents, /{%\s*snippet\s+([^ ]*)/i)
       .reject do |_idx, _text, selected|
@@ -396,11 +472,25 @@ module GtnLinter
         match_end: selected.end(0),
         replacement: nil,
         message: "This snippet (`#{selected[1]}`) does not seem to exist",
-        code: 'GTN:008'
+        code: 'GTN:008',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ## 
+  # GTN:009 - This looks like an invalid tool link. There are several ways that tool links can be invalid, and only one correct way to reference a tool
+  #
+  # Correct
+  #
+  #   {% tool [JBrowse genome browser](toolshed.g2.bx.psu.edu/repos/iuc/jbrowse/jbrowse/1.16.4+galaxy3) %}
+  #
+  # Incorrect
+  #
+  #   {% tool [JBrowse genome browser](https://toolshed.g2.bx.psu.edu/repos/iuc/jbrowse/jbrowse/1.16.4+galaxy3) %}
+  #   {% tool [JBrowse genome browser](https://toolshed.g2.bx.psu.edu/repos/iuc/jbrowse/jbrowse) %}
+  #   {% tool [JBrowse genome browser](jbrowse/1.16.4+galaxy3) %}
+  #   {% tool [JBrowse genome browser](https://toolshed.g2.bx.psu.edu/repos/iuc/jbrowse/jbrowse/deadbeefcafe) %}
   def self.bad_tool_links(contents)
     find_matching_texts(contents, @BAD_TOOL_LINK) + \
       find_matching_texts(contents, @BAD_TOOL_LINK2)
@@ -412,11 +502,14 @@ module GtnLinter
           match_end: selected.end(0) + 1,
           replacement: "{% tool #{selected[1]}(#{selected[2]}) %}",
           message: 'You have used the full tool URL to a specific server, here we only need the tool ID portion.',
-          code: 'GTN:009'
+          code: 'GTN:009',
+          fn: __method__.to_s,
         )
       end
   end
 
+  ##
+  # GTN:040 - zenodo.org/api links are invalid in the GTN, please use the zenodo.org/records/id/files/<filename> format instead. This ensures that when users download files from zenodo into Galaxy, they appear correctly, with a useful filename.
   def self.bad_zenodo_links(contents)
     find_matching_texts(contents, /https:\/\/zenodo.org\/api\//)
       .reject { |_idx, _text, selected| _text =~ /files-archive/ }
@@ -428,11 +521,14 @@ module GtnLinter
           match_end: selected.end(0) + 1,
           replacement: nil,
           message: 'Please do not use zenodo.org/api/ links, instead it should look like zenodo.org/records/id/files/<filename>',
-          code: 'GTN:040'
+          code: 'GTN:040',
+          fn: __method__.to_s,
         )
       end
   end
 
+  ##
+  # GTN:032 - Snippets are too close together which sometimes breaks snippet rendering. Please ensure snippets are separated by one line.
   def self.snippets_too_close_together(contents)
     prev_line = -2
     res = []
@@ -446,7 +542,8 @@ module GtnLinter
                    match_end: selected.end(0) + 1,
                    replacement: nil,
                    message: 'Snippets too close together',
-                   code: 'GTN:032'
+                   code: 'GTN:032',
+                   fn: __method__.to_s,
                  ))
       end
       prev_line = idx
@@ -483,6 +580,8 @@ module GtnLinter
     'wig_to_bigWig'
   ].freeze
 
+  ##
+  # GTN:009 - See GtnLinter.bad_tool_links
   def self.check_tool_link(contents)
     find_matching_texts(contents, /{%\s*tool \[([^\]]*)\]\(([^)]*)\)\s*%}/)
       .map do |idx, _text, selected|
@@ -549,6 +648,12 @@ module GtnLinter
     end
   end
 
+  ##
+  # GTN:010 - We have a new, more accessible syntax for box titles. Please use this instead:
+  #
+  #   > <box-title>Some Title</box-title>
+  #   > ...
+  #   {: .box}
   def self.new_more_accessible_boxes(contents)
     #  \#\#\#
     find_matching_texts(contents, /> (### {%\s*icon ([^%]*)\s*%}[^:]*:?(.*))/)
@@ -561,11 +666,14 @@ module GtnLinter
         match_end: selected.end(1) + 1,
         replacement: "<#{key}-title>#{selected[3].strip}</#{key}-title>",
         message: 'We have developed a new syntax for box titles, please consider using this instead.',
-        code: 'GTN:010'
+        code: 'GTN:010',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ##
+  # GTN:010 - See GtnLinter.new_more_accessible_boxes_agenda
   def self.new_more_accessible_boxes_agenda(contents)
     #  \#\#\#
     find_matching_texts(contents, /> (###\s+Agenda\s*)/)
@@ -577,11 +685,14 @@ module GtnLinter
         match_end: selected.end(1) + 1,
         replacement: '<agenda-title></agenda-title>',
         message: 'We have developed a new syntax for box titles, please consider using this instead.',
-        code: 'GTN:010'
+        code: 'GTN:010',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ##
+  # GTN:011 - Do not use target="_blank" it is bad for accessibility.
   def self.no_target_blank(contents)
     find_matching_texts(contents, /target=("_blank"|'_blank')/)
       .map do |idx, _text, selected|
@@ -593,11 +704,14 @@ module GtnLinter
         replacement: nil,
         message: 'Please do not use `target="_blank"`, [it is bad for accessibility.]' \
                  '(https://www.a11yproject.com/checklist/#identify-links-that-open-in-a-new-tab-or-window)',
-        code: 'GTN:011'
+        code: 'GTN:011',
+        fn: __method__.to_s,
       )
     end
   end
 
+  ## 
+  # GTN:034 - Alternative text or alt-text is mandatory for every image in the GTN.
   def self.empty_alt_text(contents)
     find_matching_texts(contents, /!\[\]\(/i)
       .map do |idx, _text, selected|
@@ -610,12 +724,17 @@ module GtnLinter
           match_end: selected.end(0),
           replacement: nil,
           message: 'The alt text for this image seems to be empty',
-          code: 'GTN:034'
+          code: 'GTN:034',
+          fn: __method__.to_s,
         )
       end
     end
   end
 
+  ##
+  # GTN:018 - You have linked to a file but this file could not be found. Check your link to make sure the path exists.
+  #
+  # Note that we use a customised version of Jekyll's link function which will not work correctly for _posts/news items, which should be corrected at some point. We should remove our custom link function and go back to the official one.
   def self.check_bad_link(contents)
     find_matching_texts(contents, /{%\s*link\s+([^%]*)\s*%}/i)
       .map do |idx, _text, selected|
@@ -628,7 +747,8 @@ module GtnLinter
           match_end: selected.end(0),
           replacement: nil,
           message: "The linked file (`#{selected[1].strip}`) could not be found.",
-          code: 'GTN:018'
+          code: 'GTN:018',
+          fn: __method__.to_s,
         )
       end
     end
@@ -644,12 +764,15 @@ module GtnLinter
           match_end: selected.end(0),
           replacement: nil,
           message: 'The link does not seem to have a target.',
-          code: 'GTN:018'
+          code: 'GTN:018',
+          fn: __method__.to_s,
         )
       end
     end
   end
 
+  ##
+  # GTN:036 - You have used the TRS snippet to link to a TRS ID but the link does not seem to be correct.
   def self.check_bad_trs_link(contents)
     find_matching_texts(contents, %r{snippet faqs/galaxy/workflows_run_trs.md path="([^"]*)"}i)
       .map do |idx, _text, selected|
@@ -662,12 +785,15 @@ module GtnLinter
           match_end: selected.end(0),
           replacement: nil,
           message: "The linked file (`#{path}`) could not be found.",
-          code: 'GTN:036'
+          code: 'GTN:036',
+          fn: __method__.to_s,
         )
       end
     end
   end
 
+  ##
+  # 
   def self.check_looks_like_heading(contents)
     # TODO: we should remove this someday, but, we need to have a good solution
     # and we're still a ways from that.
